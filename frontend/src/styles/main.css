@@ -1,0 +1,277 @@
+@import url('/vendor/tabler/tabler.min.css');
+
+body {
+  font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+  font-size: 16px;
+}
+
+.navbar,
+.btn,
+.form-control,
+.form-select,
+.table,
+.badge {
+  font-size: 1rem;
+}
+
+.card-title {
+  font-size: 1.35rem;
+}
+
+.nav-link {
+  font-size: 1rem;
+}
+
+.page-shell {
+  min-height: 100vh;
+}
+
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: #206bc4;
+  color: #fff;
+  font-weight: 800;
+}
+
+.login-page {
+  width: min(340px, calc(100% - 24px));
+  margin: 64px auto;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.login-logo {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  background: #24292f;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.login-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.login-header p {
+  margin: 6px 0 0;
+  color: #667085;
+}
+
+.login-form .form-label,
+.form-label {
+  font-size: 1rem;
+}
+
+.login-panel {
+  padding: 16px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #f6f8fa;
+}
+
+.login-form .form-label {
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #24292f;
+}
+
+.login-form .form-control,
+.login-form .form-select {
+  background-color: #fff;
+}
+
+.login-switch {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  text-align: center;
+}
+
+.setup-page {
+  width: min(760px, 100%);
+  margin: 40px auto;
+}
+
+.setup-card {
+  border-radius: 8px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  border: 1px solid #d8e0ea;
+  border-radius: 8px;
+  padding: 18px;
+  background: #fff;
+}
+
+.stat-card b {
+  display: block;
+  color: #206bc4;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.section-label {
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.category-btn {
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid #d8e0ea;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  font-size: 1rem;
+}
+
+.category-btn b {
+  margin-right: 8px;
+  color: #206bc4;
+}
+
+.category-btn.active {
+  border-color: #206bc4;
+  background: #eef6ff;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.detail-modal {
+  width: min(920px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+
+.reservation-modal {
+  width: min(520px, 100%);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.detail-grid div,
+.media-item {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #d8e0ea;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.detail-title {
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+
+.media-list {
+  display: grid;
+  gap: 10px;
+}
+
+.detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #d8e0ea;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-grid.wide {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.sortable::after {
+  content: "↕";
+  margin-left: 6px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+th.sortable.asc::after {
+  content: "↑";
+  color: #206bc4;
+}
+
+th.sortable.desc::after {
+  content: "↓";
+  color: #206bc4;
+}
+
+@media (max-width: 900px) {
+  .stats,
+  .form-grid.wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .stats,
+  .form-grid,
+  .form-grid.wide {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: span 1;
+  }
+}
