@@ -67,19 +67,34 @@ python -m venv .venv
 
 ### 2. 初始化数据库
 
-执行以下命令会重建 `db_lab2` 数据库，并导入表结构、初始数据、触发器、函数和存储过程：
+首先登录 MySQL：
 
 ```bash
-mysql -uroot -p123456 < database/import_all.sql
+mysql -uroot -p123456
 ```
+
+进入 MySQL 后执行：
+
+```SQL
+source database/import_all.sql;
+```
+
+或
+
+```SQL
+\. database/import_all.sql
+```
+
+该命令会重建 `db_lab2` 数据库，并导入表结构、初始数据、触发器、函数和存储过程。
 
 数据库脚本位于：
 
 ```text
-database/schema.sql
-database/seed.sql
-database/business.sql
-database/import_all.sql
+database/
+├─ schema.sql       # 表结构
+├─ seed.sql         # 初始数据
+├─ business.sql     # 触发器、函数、存储过程
+└─ import_all.sql   # 一键导入脚本
 ```
 
 ### 3. 安装前端依赖
