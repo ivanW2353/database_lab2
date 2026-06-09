@@ -13,6 +13,7 @@
         <tr v-for="row in sortedRows" :key="row[idKey] || JSON.stringify(row)">
           <td v-for="[key] in columns" :key="key">
             <span v-if="key === 'status'" class="badge" :class="badgeClass(row[key])">{{ statusText(row[key]) }}</span>
+            <span v-else-if="key === 'student_type'">{{ studentTypeText(row[key]) }}</span>
             <span v-else>{{ row[key] || '' }}</span>
           </td>
           <td v-if="$slots.actions"><slot name="actions" :row="row" /></td>
@@ -91,5 +92,10 @@ function statusText(status) {
     disabled: '停用'
   }
   return labels[status] || status || ''
+}
+
+function studentTypeText(type) {
+  const labels = { undergraduate: '本科生' }
+  return labels[type] || type || ''
 }
 </script>

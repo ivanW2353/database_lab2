@@ -23,9 +23,9 @@
           <ProfileSetupView v-else-if="route === '/student/setup'" @notice="setNotice" @profile-saved="onProfileSetupSaved" />
           <DashboardView v-else-if="route === homePath" :role="user.role" @notice="setNotice" @book-search="onBookSearch" />
           <BooksView v-else-if="routePath === '/student/books'" :route="route" @notice="setNotice" />
-          <RowsView v-else-if="route === '/student/borrows'" title="我的借阅" url="/api/student/borrows" :columns="studentBorrowColumns" numbered />
+          <StudentBorrowsView v-else-if="route === '/student/borrows'" @notice="setNotice" />
           <StudentReservationsView v-else-if="route === '/student/reservations'" @notice="setNotice" />
-          <RowsView v-else-if="route === '/student/overdue'" title="违期记录" url="/api/student/overdue" :columns="studentOverdueColumns" numbered />
+          <RowsView v-else-if="route === '/student/overdue'" title="违期记录" url="/api/student/overdue" :columns="studentOverdueColumns" />
           <ProfileView v-else-if="route === '/student/profile'" @notice="setNotice" @profile-saved="onProfileSaved" />
           <AdminBooksView v-else-if="route === '/admin/books'" @notice="setNotice" />
           <AdminStudentsView v-else-if="route === '/admin/students'" @notice="setNotice" />
@@ -47,6 +47,7 @@ import ProfileSetupView from './views/ProfileSetupView.vue'
 import DashboardView from './views/DashboardView.vue'
 import BooksView from './views/BooksView.vue'
 import RowsView from './views/RowsView.vue'
+import StudentBorrowsView from './views/StudentBorrowsView.vue'
 import StudentReservationsView from './views/StudentReservationsView.vue'
 import ProfileView from './views/ProfileView.vue'
 import AdminBooksView from './views/AdminBooksView.vue'
@@ -84,10 +85,7 @@ const navItems = computed(() => user.value?.role === 'librarian'
       { path: '/student/profile', label: '个人信息' }
     ])
 
-const studentBorrowColumns = [
-  ['display_no', '编号'], ['title', '书名'], ['barcode', '条码'], ['borrow_time', '借出时间'], ['due_time', '应还时间'], ['return_time', '归还时间'], ['status', '状态']
-]
-const studentOverdueColumns = [['display_no', '编号'], ['title', '书名'], ['overdue_days', '逾期天数'], ['fine_amount', '罚金'], ['paid_amount', '已缴'], ['status', '状态']]
+const studentOverdueColumns = [['overdue_code', '违期编码'], ['title', '书名'], ['overdue_start_date', '违期开始日期'], ['overdue_days', '逾期天数'], ['fine_amount', '罚金'], ['paid_amount', '已缴'], ['status', '状态']]
 
 function go(path) {
   if (user.value?.role === 'student' && needsProfileCompletion(user.value) && path !== '/student/setup') {

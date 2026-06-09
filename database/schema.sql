@@ -89,7 +89,7 @@ CREATE TABLE book_copy (
   barcode VARCHAR(50) NOT NULL UNIQUE,
   location VARCHAR(100) NOT NULL,
   status ENUM('available', 'borrowed', 'maintenance', 'lost', 'removed') NOT NULL DEFAULT 'available',
-  purchase_date DATE,
+  purchase_date DATE DEFAULT (CURRENT_DATE),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_copy_book FOREIGN KEY (book_no) REFERENCES book(book_no)
@@ -104,8 +104,16 @@ CREATE TABLE borrow_rule (
   fine_per_day DECIMAL(8,2) NOT NULL DEFAULT 0.50
 ) ENGINE=InnoDB;
 
+CREATE TABLE business_sequence (
+  business_type ENUM('borrow', 'reservation', 'overdue') NOT NULL,
+  business_date DATE NOT NULL,
+  current_value INT UNSIGNED NOT NULL,
+  PRIMARY KEY (business_type, business_date)
+) ENGINE=InnoDB;
+
 CREATE TABLE borrow_record (
   borrow_no BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  borrow_code VARCHAR(24) NOT NULL UNIQUE,
   student_no BIGINT UNSIGNED NOT NULL,
   copy_no BIGINT UNSIGNED NOT NULL,
   borrow_librarian_no BIGINT UNSIGNED,
@@ -125,6 +133,7 @@ CREATE TABLE borrow_record (
 
 CREATE TABLE reservation (
   reservation_no BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  reservation_code VARCHAR(24) NOT NULL UNIQUE,
   student_no BIGINT UNSIGNED NOT NULL,
   book_no BIGINT UNSIGNED NOT NULL,
   reserved_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -141,6 +150,7 @@ CREATE TABLE reservation (
 
 CREATE TABLE overdue_record (
   overdue_no BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  overdue_code VARCHAR(24) NOT NULL UNIQUE,
   borrow_no BIGINT UNSIGNED NOT NULL UNIQUE,
   overdue_days INT UNSIGNED NOT NULL,
   fine_amount DECIMAL(10,2) NOT NULL,

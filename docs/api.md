@@ -55,21 +55,34 @@
 
 注册成功后，后端会直接写入登录 Session，并返回当前学生用户信息。姓名、学院、专业、电话、邮箱等信息在个人信息页面补充。密码至少 6 位，且只能包含数字或字母。
 
+借阅和预约列表显示数据库生成的业务长编码：
+
+```text
+借阅编码：BR202606040001
+预约编码：RV202606040001
+违期编码：OD202606040001
+```
+
+自增主键仍作为内部关联键，业务长编码用于页面展示和记录查询。
+
 ## 公共接口
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/books?q=关键词` | 图书检索 |
+| GET | `/api/books?q=关键词&page=1&page_size=10` | 分页图书检索 |
 
 ## 学生端接口
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/student/dashboard` | 学生首页统计和借阅排行 |
-| GET | `/api/student/borrows` | 我的借阅 |
+| GET | `/api/student/borrows?page=1&page_size=10` | 分页查询我的借阅 |
 | POST | `/api/student/borrows` | 学生端借出；无可借馆藏时加入预约队列 |
-| GET | `/api/student/reservations` | 我的预约 |
+| POST | `/api/student/borrows/renew` | 延期本人未逾期的借阅 |
+| POST | `/api/student/borrows/return` | 归还本人当前借阅 |
+| GET | `/api/student/reservations?page=1&page_size=10` | 分页查询我的预约 |
 | POST | `/api/student/reservations` | 提交预约 |
+| PUT | `/api/student/reservations` | 修改本人有效预约的计划借出日期 |
 | DELETE | `/api/student/reservations` | 取消本人有效预约 |
 | GET | `/api/student/overdue` | 我的违期记录 |
 | GET | `/api/student/profile` | 获取个人信息 |
@@ -87,6 +100,17 @@
 
 `borrow_date` 为学生选择的计划借出日期，必须晚于当天。
 
+`PUT /api/student/reservations` 请求体：
+
+```json
+{
+  "reservation_no": 1,
+  "borrow_date": "2026-06-15"
+}
+```
+
+只能修改本人状态为“待处理”或“已通知”的预约。数据库会同步更新预约过期时间。
+
 `POST /api/student/borrows` 请求体：
 
 ```json
@@ -96,6 +120,16 @@
 ```
 
 若该书有可借副本，系统会立即借出；若当前无可借副本，系统会自动生成一条等待状态的预约队列记录。
+
+`POST /api/student/borrows/renew` 和 `POST /api/student/borrows/return` 请求体：
+
+```json
+{
+  "borrow_no": 1
+}
+```
+
+延期次数和延期天数由 `borrow_rule` 表控制。延期与还书均通过数据库存储过程完成，并校验借阅记录属于当前登录学生。
 
 `DELETE /api/student/reservations` 请求体：
 
@@ -139,18 +173,20 @@
 |---|---|---|
 | GET | `/api/admin/dashboard` | 管理员首页统计和借阅排行 |
 | GET | `/api/admin/books` | 图书、分类、出版社数据 |
+| GET | `/api/admin/books/<book_no>` | 管理员图书详情，包含该书全部历史借阅记录 |
 | POST | `/api/admin/books` | 新增图书、副本或媒体资料 |
-| GET | `/api/admin/students` | 学生列表，可按学号和姓名查询 |
+| GET | `/api/admin/students?page=1&page_size=10` | 分页学生列表，可按学号和姓名查询 |
+| GET | `/api/admin/students/<student_id>` | 学生详情及该学生全部历史借阅记录 |
 | POST | `/api/admin/students` | 新增学生 |
 | DELETE | `/api/admin/students` | 删除学生 |
-| GET | `/api/admin/librarians` | 管理员列表，可按工号和姓名查询 |
+| GET | `/api/admin/librarians?page=1&page_size=10` | 分页管理员列表，可按工号和姓名查询 |
 | POST | `/api/admin/librarians` | 新增管理员 |
 | DELETE | `/api/admin/librarians` | 删除或停用管理员 |
-| GET | `/api/admin/borrow` | 可借/馆藏副本列表 |
+| GET | `/api/admin/borrow?page=1&page_size=10` | 分页可借/馆藏副本列表 |
 | POST | `/api/admin/borrow` | 办理借书 |
-| GET | `/api/admin/return` | 当前借出列表 |
+| GET | `/api/admin/return?page=1&page_size=10&q=关键词` | 分页查询当前借出列表 |
 | POST | `/api/admin/return` | 办理还书 |
-| GET | `/api/admin/reservations` | 预约列表 |
+| GET | `/api/admin/reservations?page=1&page_size=10` | 分页预约列表 |
 | POST | `/api/admin/reservations` | 更新预约状态 |
 | GET | `/api/admin/overdue` | 违期列表 |
 | POST | `/api/admin/overdue` | 登记罚金缴清 |
@@ -240,6 +276,28 @@ name=姓名关键字
   "purchase_date": "2026-06-01"
 }
 ```
+
+`POST /api/admin/books` 修改图书简介：
+
+```json
+{
+  "action": "summary",
+  "book_no": 1,
+  "summary": "修改后的图书简介"
+}
+```
+
+简介修改通过数据库存储过程完成。空简介会在数据库中保存为 `NULL`。
+
+`POST /api/admin/books` 上传图书附件，使用 `multipart/form-data`，字段为：
+
+```text
+action=media
+book_no=1
+file=<本地文件>
+```
+
+上传文件最大为 50 MB，文件保存在 `uploads/books/图书编号/`，数据库保存相对路径和元数据。
 
 `POST /api/admin/borrow` 请求体：
 

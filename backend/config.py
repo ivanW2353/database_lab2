@@ -4,6 +4,7 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024
 LOG_DIR = BASE_DIR / "logs"
 
 DB_NAME = os.environ.get("LIBRARY_DB_NAME", "db_lab2")

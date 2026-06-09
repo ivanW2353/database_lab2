@@ -121,6 +121,7 @@ class BorrowRecord(Base):
     __tablename__ = "borrow_record"
 
     borrow_no: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    borrow_code: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
     student_no: Mapped[int] = mapped_column(BigInteger, ForeignKey("student.student_no"), nullable=False)
     copy_no: Mapped[int] = mapped_column(BigInteger, ForeignKey("book_copy.copy_no"), nullable=False)
     borrow_librarian_no: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("librarian.librarian_no"))
@@ -139,6 +140,7 @@ class Reservation(Base):
     __tablename__ = "reservation"
 
     reservation_no: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    reservation_code: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
     student_no: Mapped[int] = mapped_column(BigInteger, ForeignKey("student.student_no"), nullable=False)
     book_no: Mapped[int] = mapped_column(BigInteger, ForeignKey("book.book_no"), nullable=False)
     reserved_at: Mapped[str] = mapped_column(DateTime, server_default=func.current_timestamp())
@@ -156,6 +158,7 @@ class OverdueRecord(Base):
     __tablename__ = "overdue_record"
 
     overdue_no: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    overdue_code: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
     borrow_no: Mapped[int] = mapped_column(BigInteger, ForeignKey("borrow_record.borrow_no"), unique=True, nullable=False)
     overdue_days: Mapped[int] = mapped_column(Integer, nullable=False)
     fine_amount: Mapped[float] = mapped_column(DECIMAL(10, 2), nullable=False)

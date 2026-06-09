@@ -2,11 +2,36 @@ from flask import Blueprint, jsonify, request
 
 from ..audit import log_event
 from ..mysql_cli import mysql, q, scalar
+from ..pagination import paginate
 from ..services import DEFAULT_LIBRARIAN_PASSWORD, DEFAULT_STUDENT_PASSWORD, create_librarian, create_student_with_id
 from .helpers import api_error, payload, require_api_role
 
 
 admin_users_bp = Blueprint("admin_users_api", __name__, url_prefix="/api/admin")
+
+
+@admin_users_bp.route("/students/<student_id>")
+@require_api_role("librarian")
+def api_admin_student_detail(user, student_id):
+    rows = mysql(
+        "SELECT student_id,name,gender,college,major,phone,email,student_type,status,created_at "
+        f"FROM student WHERE student_id={q(student_id)}",
+        True,
+    )
+    if not rows:
+        return api_error("学生不存在", 404)
+    student = rows[0]
+    student["borrow_records"] = mysql(
+        "SELECT br.borrow_no,br.borrow_code,b.title,bc.barcode,br.borrow_time,br.due_time,"
+        "br.return_time,br.renew_count,br.status "
+        "FROM borrow_record br "
+        "JOIN student s ON s.student_no=br.student_no "
+        "JOIN book_copy bc ON bc.copy_no=br.copy_no "
+        "JOIN book b ON b.book_no=bc.book_no "
+        f"WHERE s.student_id={q(student_id)} ORDER BY br.borrow_no DESC",
+        True,
+    )
+    return jsonify({"ok": True, "student": student})
 
 
 @admin_users_bp.route("/students", methods=["GET", "POST", "DELETE"])
@@ -47,12 +72,12 @@ def api_admin_students(user):
     if name:
         where.append(f"name LIKE {q('%' + name + '%')}")
     where_sql = " WHERE " + " AND ".join(where) if where else ""
-    rows = mysql(
-        "SELECT student_no,student_id,name,college,major,student_type,status "
-        f"FROM student{where_sql} ORDER BY student_no",
-        True,
+    rows, pagination = paginate(
+        "SELECT student_id,name,college,major,student_type,status "
+        f"FROM student{where_sql} ORDER BY student_id",
+        f"SELECT COUNT(*) c FROM student{where_sql}",
     )
-    return jsonify({"ok": True, "rows": rows})
+    return jsonify({"ok": True, "rows": rows, "pagination": pagination})
 
 
 @admin_users_bp.route("/librarians", methods=["GET", "POST", "DELETE"])
@@ -106,9 +131,9 @@ def api_admin_librarians(user):
     if name:
         where.append(f"name LIKE {q('%' + name + '%')}")
     where_sql = " WHERE " + " AND ".join(where) if where else ""
-    rows = mysql(
-        "SELECT librarian_no,employee_id,name,phone,email,position,status,created_at "
-        f"FROM librarian{where_sql} ORDER BY librarian_no",
-        True,
+    rows, pagination = paginate(
+        "SELECT employee_id,name,phone,email,position,status,created_at "
+        f"FROM librarian{where_sql} ORDER BY employee_id",
+        f"SELECT COUNT(*) c FROM librarian{where_sql}",
     )
-    return jsonify({"ok": True, "rows": rows})
+    return jsonify({"ok": True, "rows": rows, "pagination": pagination})

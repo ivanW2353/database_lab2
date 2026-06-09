@@ -1,5 +1,5 @@
 from .auth_service import find_login_user
-from .book_service import book_categories, book_detail, book_rows, top_borrowed_books
+from .book_service import book_borrow_records, book_categories, book_detail, book_rows, top_borrowed_books
 from .init_service import ensure_demo_accounts
 from .librarian_service import DEFAULT_LIBRARIAN_PASSWORD, create_librarian
 from .student_service import (
@@ -13,6 +13,7 @@ __all__ = [
     "book_rows",
     "book_categories",
     "book_detail",
+    "book_borrow_records",
     "ensure_demo_accounts",
     "find_login_user",
     "DEFAULT_LIBRARIAN_PASSWORD",

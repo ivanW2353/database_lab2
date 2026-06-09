@@ -2,7 +2,7 @@
   <section class="card">
     <div class="card-body">
       <h1 class="card-title">管理员管理</h1>
-      <form class="form-grid wide mb-3" @submit.prevent="load">
+      <form class="form-grid wide mb-3" @submit.prevent="search">
         <label class="form-label">搜索工号<input v-model="filters.employee_id" class="form-control" placeholder="输入工号关键字"></label>
         <label class="form-label">搜索姓名<input v-model="filters.name" class="form-control" placeholder="输入姓名关键字"></label>
         <button class="btn btn-outline-primary">搜索</button>
@@ -19,7 +19,8 @@
         <button class="btn btn-primary">新增管理员</button>
         <button type="button" class="btn btn-danger" @click="deleteLibrarian">删除管理员</button>
       </form>
-      <SortableTable :columns="columns" :rows="rows" id-key="librarian_no" />
+      <SortableTable :columns="columns" :rows="rows" id-key="employee_id" />
+      <PaginationControls :pagination="pagination" @change="changePage" />
     </div>
   </section>
 </template>
@@ -28,13 +29,14 @@
 import { onMounted, reactive, ref } from 'vue'
 import { api } from '../api'
 import SortableTable from '../components/SortableTable.vue'
+import PaginationControls from '../components/PaginationControls.vue'
 
 const emit = defineEmits(['notice'])
 const rows = ref([])
 const filters = reactive({ employee_id: '', name: '' })
 const form = reactive({ employee_id: '', name: '', password: '123456', position: '', phone: '', email: '' })
+const pagination = reactive({ page: 1, page_size: 10, total: 0, total_pages: 1 })
 const columns = [
-  ['librarian_no', '编号'],
   ['employee_id', '工号'],
   ['name', '姓名'],
   ['phone', '电话'],
@@ -48,16 +50,23 @@ function librarianUrl() {
   const params = new URLSearchParams()
   if (filters.employee_id.trim()) params.set('employee_id', filters.employee_id.trim())
   if (filters.name.trim()) params.set('name', filters.name.trim())
+  params.set('page', pagination.page)
+  params.set('page_size', pagination.page_size)
   const query = params.toString()
   return query ? `/api/admin/librarians?${query}` : '/api/admin/librarians'
 }
 
 async function load() {
-  rows.value = (await api(librarianUrl())).rows
+  const data = await api(librarianUrl())
+  rows.value = data.rows
+  Object.assign(pagination, data.pagination)
 }
+async function search() { pagination.page = 1; await load() }
+async function changePage(page) { pagination.page = page; await load() }
 
 async function resetFilters() {
   Object.assign(filters, { employee_id: '', name: '' })
+  pagination.page = 1
   await load()
 }
 

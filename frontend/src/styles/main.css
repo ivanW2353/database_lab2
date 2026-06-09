@@ -212,6 +212,14 @@ body {
   gap: 10px;
 }
 
+.media-thumb {
+  max-width: 180px;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
 .detail-actions {
   display: flex;
   justify-content: flex-end;

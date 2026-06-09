@@ -3,6 +3,7 @@ from datetime import date
 
 from ..audit import log_event
 from ..mysql_cli import mysql, q, scalar
+from ..pagination import paginate
 from ..security import PASSWORD_POLICY_MESSAGE, hash_password, validate_password, verify_password
 from ..services import PLACEHOLDER_STUDENT_NAME, book_categories, book_detail, book_rows, top_borrowed_books
 from ..validators import validate_email, validate_phone
@@ -15,13 +16,17 @@ student_api_bp = Blueprint("student_api", __name__, url_prefix="/api")
 @student_api_bp.route("/books")
 def api_books():
     from flask import request
+    books, pagination = book_rows(
+        request.args.get("q", ""),
+        request.args.get("category_no", ""),
+        request.args.get("category_code", ""),
+        request.args.get("page", 1),
+        request.args.get("page_size", 10),
+    )
     return jsonify({
         "ok": True,
-        "books": book_rows(
-            request.args.get("q", ""),
-            request.args.get("category_no", ""),
-            request.args.get("category_code", ""),
-        ),
+        "books": books,
+        "pagination": pagination,
         "categories": book_categories(),
     })
 
@@ -76,11 +81,40 @@ def api_student_borrows(user):
             return db_api_error(exc)
         log_event("book_self_borrowed", user, book_no=book_no, copy_no=copy_no)
         return jsonify({"ok": True, "message": "借出成功，请按期归还"})
-    rows = mysql(f"SELECT br.borrow_no,b.title,bc.barcode,br.borrow_time,br.due_time,br.return_time,br.status FROM borrow_record br JOIN book_copy bc ON bc.copy_no=br.copy_no JOIN book b ON b.book_no=bc.book_no WHERE br.student_no={user['no']} ORDER BY br.borrow_no DESC", True)
-    return jsonify({"ok": True, "rows": rows})
+    rows, pagination = paginate(
+        f"SELECT br.borrow_no,br.borrow_code,b.title,bc.barcode,br.borrow_time,br.due_time,br.return_time,br.status FROM borrow_record br JOIN book_copy bc ON bc.copy_no=br.copy_no JOIN book b ON b.book_no=bc.book_no WHERE br.student_no={user['no']} ORDER BY br.borrow_no DESC",
+        f"SELECT COUNT(*) c FROM borrow_record WHERE student_no={user['no']}",
+    )
+    return jsonify({"ok": True, "rows": rows, "pagination": pagination})
 
 
-@student_api_bp.route("/student/reservations", methods=["GET", "POST", "DELETE"])
+@student_api_bp.route("/student/borrows/return", methods=["POST"])
+@require_api_role("student")
+def api_student_return(user):
+    borrow_no = payload().get("borrow_no")
+    try:
+        mysql(f"CALL sp_return_book({q(borrow_no)},NULL,{q(user['no'])})")
+    except RuntimeError as exc:
+        log_event("book_self_return_failed", user, borrow_no=borrow_no, error=exc)
+        return db_api_error(exc)
+    log_event("book_self_returned", user, borrow_no=borrow_no)
+    return jsonify({"ok": True, "message": "还书成功"})
+
+
+@student_api_bp.route("/student/borrows/renew", methods=["POST"])
+@require_api_role("student")
+def api_student_renew(user):
+    borrow_no = payload().get("borrow_no")
+    try:
+        mysql(f"CALL sp_renew_borrow({q(borrow_no)},{q(user['no'])})")
+    except RuntimeError as exc:
+        log_event("book_renew_failed", user, borrow_no=borrow_no, error=exc)
+        return db_api_error(exc)
+    log_event("book_renewed", user, borrow_no=borrow_no)
+    return jsonify({"ok": True, "message": "延期成功"})
+
+
+@student_api_bp.route("/student/reservations", methods=["GET", "POST", "PUT", "DELETE"])
 @require_api_role("student")
 def api_student_reservations(user):
     from flask import request
@@ -102,6 +136,24 @@ def api_student_reservations(user):
         )
         log_event("reservation_cancelled", user, reservation_no=reservation_no)
         return jsonify({"ok": True, "message": "预约已取消"})
+
+    if request.method == "PUT":
+        data = payload()
+        reservation_no = data.get("reservation_no")
+        borrow_date = (data.get("borrow_date") or "").strip()
+        try:
+            selected_date = date.fromisoformat(borrow_date)
+        except ValueError:
+            return api_error("预约借出日期格式不正确")
+        if selected_date <= date.today():
+            return api_error("预约借出日期必须晚于今天")
+        try:
+            mysql(f"CALL sp_update_reservation_date({q(reservation_no)},{q(user['no'])},{q(borrow_date)})")
+        except RuntimeError as exc:
+            log_event("reservation_date_update_failed", user, reservation_no=reservation_no, borrow_date=borrow_date, error=exc)
+            return db_api_error(exc)
+        log_event("reservation_date_updated", user, reservation_no=reservation_no, borrow_date=borrow_date)
+        return jsonify({"ok": True, "message": "预约时间已修改"})
 
     if request.method == "POST":
         data = payload()
@@ -127,14 +179,17 @@ def api_student_reservations(user):
             return db_api_error(exc)
         log_event("reservation_created", user, book_no=book_no, borrow_date=borrow_date)
         return jsonify({"ok": True, "message": "预约已提交"})
-    rows = mysql(f"SELECT r.reservation_no,b.title,r.reserved_at,r.borrow_date,r.expire_at,r.status FROM reservation r JOIN book b ON b.book_no=r.book_no WHERE r.student_no={user['no']} ORDER BY r.reservation_no DESC", True)
-    return jsonify({"ok": True, "rows": rows})
+    rows, pagination = paginate(
+        f"SELECT r.reservation_no,r.reservation_code,b.title,r.reserved_at,r.borrow_date,r.expire_at,r.status FROM reservation r JOIN book b ON b.book_no=r.book_no WHERE r.student_no={user['no']} ORDER BY r.reservation_no DESC",
+        f"SELECT COUNT(*) c FROM reservation WHERE student_no={user['no']}",
+    )
+    return jsonify({"ok": True, "rows": rows, "pagination": pagination})
 
 
 @student_api_bp.route("/student/overdue")
 @require_api_role("student")
 def api_student_overdue(user):
-    rows = mysql(f"SELECT o.overdue_no,b.title,o.overdue_days,o.fine_amount,o.paid_amount,o.status FROM overdue_record o JOIN borrow_record br ON br.borrow_no=o.borrow_no JOIN book_copy bc ON bc.copy_no=br.copy_no JOIN book b ON b.book_no=bc.book_no WHERE br.student_no={user['no']} ORDER BY o.overdue_no DESC", True)
+    rows = mysql(f"SELECT o.overdue_no,o.overdue_code,b.title,DATE_ADD(DATE(br.due_time),INTERVAL 1 DAY) overdue_start_date,o.overdue_days,o.fine_amount,o.paid_amount,o.status FROM overdue_record o JOIN borrow_record br ON br.borrow_no=o.borrow_no JOIN book_copy bc ON bc.copy_no=br.copy_no JOIN book b ON b.book_no=bc.book_no WHERE br.student_no={user['no']} ORDER BY o.overdue_no DESC", True)
     return jsonify({"ok": True, "rows": rows})
 
 

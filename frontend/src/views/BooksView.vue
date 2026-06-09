@@ -28,6 +28,7 @@
           </div>
         </template>
       </SortableTable>
+      <PaginationControls :pagination="pagination" unit="本" @change="changePage" />
       <BookDetailModal :book="selectedBook" show-actions @borrow="borrow" @reserve="reserve" @close="selectedBook = null" />
     </div>
   </section>
@@ -57,6 +58,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '../api'
 import SortableTable from '../components/SortableTable.vue'
 import BookDetailModal from '../components/BookDetailModal.vue'
+import PaginationControls from '../components/PaginationControls.vue'
 
 const props = defineProps({ route: { type: String, default: '/student/books' } })
 const emit = defineEmits(['notice'])
@@ -94,6 +96,7 @@ const reservationBookNo = ref('')
 const reservationDate = ref('')
 const tableKey = ref(0)
 const fallbackMessage = ref('')
+const pagination = ref({ page: 1, page_size: 10, total: 0, total_pages: 1 })
 const columns = [['isbn', 'ISBN'], ['title', '书名'], ['category_name', '分类'], ['authors', '作者'], ['publisher_name', '出版社'], ['stock', '可借/馆藏']]
 const allCategoriesSelected = computed(() => !selectedCategoryCode.value)
 const minReservationDate = computed(() => {
@@ -107,7 +110,7 @@ const minReservationDate = computed(() => {
 const resultSummary = computed(() => {
   const categoryText = allCategoriesSelected.value ? '全部分类' : selectedCategoryCode.value
   const keywordText = keyword.value.trim() ? `，关键词：${keyword.value.trim()}` : ''
-  return `${categoryText}${keywordText}，共 ${books.value.length} 本图书`
+  return `${categoryText}${keywordText}，共 ${pagination.value.total} 本图书`
 })
 
 function categoryNamesFor(code) {
@@ -143,34 +146,42 @@ async function fetchBooks({ includeCategory = true } = {}) {
   if (keyword.value.trim()) params.set('q', keyword.value.trim())
   if (includeCategory && categoryNo.value) params.set('category_no', categoryNo.value)
   if (includeCategory && selectedCategoryCode.value) params.set('category_code', selectedCategoryCode.value)
+  params.set('page', pagination.value.page)
+  params.set('page_size', pagination.value.page_size)
   const data = await api('/api/books?' + params.toString())
-  const selectedNames = includeCategory && selectedCategoryCode.value ? categoryNamesFor(selectedCategoryCode.value) : []
-  const rows = selectedNames.length
-    ? data.books.filter(book => selectedNames.includes(book.category_name))
-    : data.books
-  return rows.map(book => ({ ...book, stock: `${book.available_count}/${book.copy_count}` }))
+  return {
+    rows: data.books.map(book => ({ ...book, stock: `${book.available_count}/${book.copy_count}` })),
+    pagination: data.pagination
+  }
 }
 
 async function load() {
   fallbackMessage.value = ''
-  books.value = await fetchBooks()
+  const result = await fetchBooks()
+  books.value = result.rows
+  pagination.value = result.pagination
   tableKey.value += 1
 }
 
-async function searchBooks() {
+async function searchBooks(resetPage = true) {
+  if (resetPage) pagination.value.page = 1
   categoryNo.value = ''
   fallbackMessage.value = ''
-  const categoryBooks = await fetchBooks()
-  if (keyword.value.trim() && selectedCategoryCode.value && categoryBooks.length === 0) {
-    books.value = await fetchBooks({ includeCategory: false })
+  const categoryResult = await fetchBooks()
+  if (keyword.value.trim() && selectedCategoryCode.value && categoryResult.pagination.total === 0) {
+    const fallbackResult = await fetchBooks({ includeCategory: false })
+    books.value = fallbackResult.rows
+    pagination.value = fallbackResult.pagination
     fallbackMessage.value = `当前分类 ${selectedCategoryCode.value} 中没有找到“${keyword.value.trim()}”，已在全部分类中继续查找。`
   } else {
-    books.value = categoryBooks
+    books.value = categoryResult.rows
+    pagination.value = categoryResult.pagination
   }
   tableKey.value += 1
 }
 
 async function selectAllCategories() {
+  pagination.value.page = 1
   keyword.value = ''
   categoryNo.value = ''
   selectedCategoryCode.value = ''
@@ -178,10 +189,16 @@ async function selectAllCategories() {
 }
 
 async function selectCategory(categoryCode) {
+  pagination.value.page = 1
   keyword.value = ''
   categoryNo.value = ''
   selectedCategoryCode.value = categoryCode
   await load()
+}
+
+async function changePage(page) {
+  pagination.value.page = page
+  await searchBooks(false)
 }
 
 async function reserve(bookNo) {

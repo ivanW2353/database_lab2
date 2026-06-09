@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 
 from ..audit import log_event
 from ..mysql_cli import mysql, q, scalar
+from ..pagination import paginate
 from .helpers import api_error, payload, require_api_role
 
 
@@ -20,12 +21,12 @@ def api_admin_borrow(user):
         mysql(f"CALL sp_borrow_book({student_no},{copy_no},{user['no']})")
         log_event("book_borrowed", user, student_no=student_no, copy_no=copy_no)
         return jsonify({"ok": True, "message": "借书成功"})
-    rows = mysql(
+    rows, pagination = paginate(
         "SELECT bc.barcode,b.title,bc.location,bc.status "
         "FROM book_copy bc JOIN book b ON b.book_no=bc.book_no ORDER BY bc.status,b.title",
-        True,
+        "SELECT COUNT(*) c FROM book_copy",
     )
-    return jsonify({"ok": True, "rows": rows})
+    return jsonify({"ok": True, "rows": rows, "pagination": pagination})
 
 
 @admin_circulation_bp.route("/return", methods=["GET", "POST"])
@@ -33,19 +34,28 @@ def api_admin_borrow(user):
 def api_admin_return(user):
     if request.method == "POST":
         borrow_no = payload().get("borrow_no")
-        mysql(f"CALL sp_return_book({q(borrow_no)},{user['no']})")
+        mysql(f"CALL sp_return_book({q(borrow_no)},{user['no']},NULL)")
         log_event("book_returned", user, borrow_no=borrow_no)
         return jsonify({"ok": True, "message": "还书成功"})
-    rows = mysql(
-        "SELECT br.borrow_no,s.student_id,s.name,b.title,bc.barcode,br.borrow_time,br.due_time,br.status "
+    keyword = (request.args.get("q") or "").strip()
+    where = "WHERE br.status IN ('borrowed','overdue')"
+    if keyword:
+        lk = q(f"%{keyword}%")
+        where += f" AND (s.student_id LIKE {lk} OR s.name LIKE {lk} OR b.title LIKE {lk} OR bc.barcode LIKE {lk} OR br.borrow_code LIKE {lk})"
+    rows, pagination = paginate(
+        "SELECT br.borrow_no,br.borrow_code,s.student_id,s.name,b.title,bc.barcode,br.borrow_time,br.due_time,br.status "
         "FROM borrow_record br "
         "JOIN student s ON s.student_no=br.student_no "
         "JOIN book_copy bc ON bc.copy_no=br.copy_no "
         "JOIN book b ON b.book_no=bc.book_no "
-        "WHERE br.status IN ('borrowed','overdue') ORDER BY br.due_time",
-        True,
+        f"{where} ORDER BY br.due_time",
+        "SELECT COUNT(*) c FROM borrow_record br "
+        "JOIN student s ON s.student_no=br.student_no "
+        "JOIN book_copy bc ON bc.copy_no=br.copy_no "
+        "JOIN book b ON b.book_no=bc.book_no "
+        f"{where}",
     )
-    return jsonify({"ok": True, "rows": rows})
+    return jsonify({"ok": True, "rows": rows, "pagination": pagination})
 
 
 @admin_circulation_bp.route("/reservations", methods=["GET", "POST"])
@@ -60,15 +70,15 @@ def api_admin_reservations(user):
         )
         log_event("reservation_updated", user, reservation_no=form.get("reservation_no"), status=form.get("status"))
         return jsonify({"ok": True, "message": "预约状态已更新"})
-    rows = mysql(
-        "SELECT r.reservation_no,s.student_id,s.name,b.title,r.reserved_at,r.borrow_date,r.expire_at,r.status "
+    rows, pagination = paginate(
+        "SELECT r.reservation_no,r.reservation_code,s.student_id,s.name,b.title,r.reserved_at,r.borrow_date,r.expire_at,r.status "
         "FROM reservation r "
         "JOIN student s ON s.student_no=r.student_no "
         "JOIN book b ON b.book_no=r.book_no "
         "ORDER BY r.reservation_no DESC",
-        True,
+        "SELECT COUNT(*) c FROM reservation",
     )
-    return jsonify({"ok": True, "rows": rows})
+    return jsonify({"ok": True, "rows": rows, "pagination": pagination})
 
 
 @admin_circulation_bp.route("/overdue", methods=["GET", "POST"])
@@ -80,7 +90,7 @@ def api_admin_overdue(user):
         log_event("overdue_paid", user, overdue_no=overdue_no)
         return jsonify({"ok": True, "message": "罚金已登记缴清"})
     rows = mysql(
-        "SELECT o.overdue_no,s.student_id,s.name,b.title,o.overdue_days,o.fine_amount,o.paid_amount,o.status "
+        "SELECT o.overdue_no,o.overdue_code,s.student_id,s.name,b.title,DATE_ADD(DATE(br.due_time),INTERVAL 1 DAY) overdue_start_date,o.overdue_days,o.fine_amount,o.paid_amount,o.status "
         "FROM overdue_record o "
         "JOIN borrow_record br ON br.borrow_no=o.borrow_no "
         "JOIN student s ON s.student_no=br.student_no "
